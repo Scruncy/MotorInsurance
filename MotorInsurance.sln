@@ -1,0 +1,23 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.8.34601.278
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{888888A0-9F3D-457C-B088-3A5042F75D52}") = "MotorInsurance", "MotorInsurance.pyproj", "{E268E671-6F45-487E-B8CE-9BB7EE7DE813}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{E268E671-6F45-487E-B8CE-9BB7EE7DE813}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E268E671-6F45-487E-B8CE-9BB7EE7DE813}.Release|Any CPU.ActiveCfg = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {E320B28D-1D14-464F-BC91-C6697810C5C0}
+	EndGlobalSection
+EndGlobal
