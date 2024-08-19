@@ -10,6 +10,11 @@ import statsmodels.api as sm
 from statsmodels.formula.api import glm
 from statsmodels.genmod.families import Gaussian, Poisson, Binomial
 from datetime import datetime
+import matplotlib.pyplot as plt
+from scipy.stats import poisson
+from scipy.stats import nbinom
+from statsmodels.genmod.families import family
+from statsmodels.genmod.families import links
 
 
 df = pd.read_csv('data.csv', delimiter=';')  #add to use the property delimiter since the data are distinguished by ;
@@ -99,7 +104,7 @@ print(df_2017)
 print("\nDataFrame for 2018:")
 print(df_2018)
 
-def plot_relative_frequencies(df, column_name):
+'''def plot_relative_frequencies(df, column_name):
     """
     Plots the relative frequencies of categories in the specified column of the DataFrame.
 
@@ -124,7 +129,51 @@ def plot_relative_frequencies(df, column_name):
 
     # Display the plot
     plt.show()
-   
+'''
+'''
+Intercept                        -0.3798
+Type_risk_2[T.True]               1.3114
+Type_risk_3[T.True]               0.9585
+Type_risk_4[T.True]              -4.8585
+Area                              0.1625
+Year                             -0.5803
+'''
+    
+def plot_relative_frequencies(df, column_name, Lambda):
+    """
+    Plots the relative frequencies of categories in the specified column of the DataFrame,
+    and overlays the Poisson distribution.
+
+    Parameters:
+    - df: pandas DataFrame containing the data.
+    - column_name: The name of the column to analyze.
+
+    Returns:
+    - None
+    """
+    # Calculate relative frequencies
+    relative_frequencies = df[column_name].value_counts(normalize=True)
+    relative_frequencies = relative_frequencies.sort_index()
+
+    # Plotting the relative frequencies
+    ax = relative_frequencies.plot(kind='bar', color='skyblue', edgecolor='black')
+
+    # Poisson distribution parameters
+    mean_value = Lambda
+    x_values = np.arange(relative_frequencies.index.min(), relative_frequencies.index.max() + 1)
+    poisson_pmf = poisson.pmf(x_values, mean_value)
+
+    # Overlaying the Poisson distribution
+    ax.plot(x_values, poisson_pmf, 'r-', marker='o', label='Poisson Distribution')
+
+    # Customize the plot
+    plt.title(f'Relative Frequencies of {column_name} with Poisson Distribution Overlay')
+    plt.xlabel(column_name)
+    plt.ylabel('Relative Frequency / Poisson PMF')
+    plt.legend()
+
+    # Display the plot
+    plt.show()
 
     
 def plot_relative_frequencies_comparison(dfs, column_name, labels):
@@ -178,32 +227,46 @@ def plot_relative_frequencies_comparison(dfs, column_name, labels):
 specific_date = datetime(1995, 8, 18)
 
 plot_relative_frequencies(df_2015[(df_2015['Type_risk'] == 3) & 
-                      (df_2015['Value_vehicle'] > 10000) & 
-                      (df_2015['Date_birth'] < specific_date)], 'N_claims_year')  # Use == for comparison, 'N_claims_year')
+                      (df_2015['Area'] == 1) & 
+                      (df_2015['Year'] == 2015)], 'N_claims_year', 0.5 )  # Use == for comparison, 'N_claims_year')
 plot_relative_frequencies(df_2016[(df_2016['Type_risk'] == 3) & 
-                      (df_2016['Value_vehicle'] > 10000) & 
-                      (df_2016['Date_birth'] < specific_date)], 'N_claims_year')  # Use == for comparison, 'N_claims_year')
+                      (df_2016['Area'] == 1) & 
+                      (df_2016['Year'] == 2016)], 'N_claims_year', 0.64)  # Use == for comparison, 'N_claims_year')
 plot_relative_frequencies(df_2017[(df_2017['Type_risk'] == 3) & 
-                      (df_2017['Value_vehicle'] > 10000) & 
-                      (df_2017['Date_birth'] < specific_date)], 'N_claims_year')  # Use == for comparison, 'N_claims_year')
+                                  (df_2017['Area'] == 1)], 
+                          'N_claims_year', 0.36)  # Use == for comparison, 'N_claims_year')
 plot_relative_frequencies(df_2018[(df_2018['Type_risk'] == 3) & 
-                      (df_2018['Value_vehicle'] > 10000) & 
-                      (df_2018['Date_birth'] < specific_date)], 'N_claims_year')  # Use == for comparison, 'N_claims_year')
-def calculate_mean(df, type_risk, value_vehicle, year, column_name):
-    filtered_df = df[(df['Type_risk'] == type_risk) & 
-                     (df['Value_vehicle'] < value_vehicle) &
-                     (df['Area'] == 0) &
-                     (df['Year_matriculation'] < year)]
-    if not filtered_df.empty:
-        return np.mean(filtered_df[column_name])
-    else:
-        return np.nan  # Return NaN if no data meets the criteria
+                                  (df_2018['Area'] == 1)], 
+                          'N_claims_year', 0.19)  # Use == for comparison, 'N_claims_year')  # Use == for comparison, 'N_claims_year')
+def calculate_mean_and_variance(df, type_risk, Area, column_name):
+    """
+    Calculates the mean and variance of a specified column in a filtered DataFrame.
 
+    Parameters:
+    - df: pandas DataFrame containing the data.
+    - type_risk: The specific Type_risk to filter on.
+    - Area: The specific Area to filter on.
+    - column_name: The name of the column to calculate the mean and variance.
+
+    Returns:
+    - A tuple containing the mean and variance of the specified column, or (NaN, NaN) if no data meets the criteria.
+    """
+    # Filter the DataFrame based on the provided conditions
+    filtered_df = df[(df['Type_risk'] == type_risk) & 
+                     (df['Area'] == Area)]
+    
+    # Check if the filtered DataFrame is not empty
+    if not filtered_df.empty:
+        mean_value = np.mean(filtered_df[column_name])
+        variance_value = np.var(filtered_df[column_name])
+        return mean_value, variance_value
+    else:
+        return np.nan, np.nan
 # Example usage for different years
-mean_2015 = calculate_mean(df_2015, 3, 100000, 2016, 'N_claims_year')
-mean_2016 = calculate_mean(df_2016, 3, 100000, 2016, 'N_claims_year')
-mean_2017 = calculate_mean(df_2017, 3, 100000, 2016, 'N_claims_year')
-mean_2018 = calculate_mean(df_2018, 3, 100000, 2016, 'N_claims_year')
+mean_2015 = calculate_mean_and_variance(df_2015, 3, 1, 'N_claims_year')
+mean_2016 = calculate_mean_and_variance(df_2016, 3, 1, 'N_claims_year')
+mean_2017 = calculate_mean_and_variance(df_2017, 3, 1, 'N_claims_year')
+mean_2018 = calculate_mean_and_variance(df_2018, 3, 1, 'N_claims_year')
 
 print("Mean for 2015:", mean_2015)
 print(np.mean(df_2015[df_2015['Type_risk'] == 3]['N_claims_year']))
@@ -316,13 +379,13 @@ df_selected['Year'] = df_selected['Year'] - 2014
 
 
 # Assuming df is your DataFrame and var2 is the categorical variable
-df_dummies = pd.get_dummies(df_selected, columns=['Classification', 'Type_risk'], drop_first=True)
+df_dummies = pd.get_dummies(df_selected, columns=['Type_risk'], drop_first=True)
 
 print(df_dummies.dtypes)
 
 
 # Define the formula for the GLM
-formula = 'N_claims_year ~ Area + Year + Classification_fast + Classification_medium + Type_risk_2 + Type_risk_3 + Type_risk_4'
+formula = 'N_claims_year ~ Area + Year +  Type_risk_2 + Type_risk_3 + Type_risk_4'
 
 # Fit the GLM with Poisson family
 model = glm(formula=formula, data=df_dummies, family=Poisson()).fit()
@@ -339,6 +402,161 @@ mean_value = np.mean(df_selected[(df_selected['Classification'] == 'easy') &
                                 ]['N_claims_year'])
 
 print(mean_value)
+
+'''
+Intercept                        -0.3798
+Type_risk_2[T.True]               1.3114
+Type_risk_3[T.True]               0.9585
+Type_risk_4[T.True]              -4.8585
+Area                              0.1625
+Year                             -0.5803
+'''
+
+import statsmodels.api as sm
+import statsmodels.formula.api as smf
+
+for col in df_dummies.columns:
+    if df_dummies[col].dtype == 'object':
+        df_dummies[col] = pd.to_numeric(df_dummies[col], errors='coerce')
+
+# Check again to confirm the conversion
+print(df_dummies.dtypes)
+
+for col in ['Type_risk_2', 'Type_risk_3', 'Type_risk_4']:
+    df_dummies[col] = df_dummies[col].astype(int)
+
+# Define the Negative Binomial model
+negbinom_model = sm.GLM(
+    df_dummies['N_claims_year'], 
+    sm.add_constant(df_dummies[['Area', 'Year', 'Type_risk_2', 'Type_risk_3', 'Type_risk_4']]), 
+    family=family.NegativeBinomial(alpha=0.17, link=links.log())
+)
+
+# Fit the model
+negbinom_result = negbinom_model.fit()
+
+# Print the summary of the model
+print(negbinom_result.summary())
+
+# Extract the dispersion parameter alpha from the fitted model
+alpha_estimated = negbinom_result.model.family.alpha
+
+# Calculate mean and variance of the fitted values
+fitted_mean = negbinom_result.fittedvalues.mean()
+print(fitted_mean)
+fitted_variance = negbinom_result.fittedvalues.var()
+
+# Estimating r using the formula: r = (mean^2) / (variance - mean)
+r_estimated = (fitted_mean ** 2) / (fitted_variance - fitted_mean)
+
+print(f"Estimated alpha (dispersion parameter): {alpha_estimated}")
+print(f"Estimated r (size parameter): {r_estimated}")
+
+def plot_relative_frequencies(df, column_name, r, p):
+    """
+    Plots the relative frequencies of categories in the specified column of the DataFrame,
+    and overlays the Negative Binomial distribution.
+
+    Parameters:
+    - df: pandas DataFrame containing the data.
+    - column_name: The name of the column to analyze.
+    - r: The number of successes (dispersion parameter) for the Negative Binomial distribution.
+    - p: The probability of success in each trial for the Negative Binomial distribution.
+
+    Returns:
+    - None
+    """
+    # Calculate relative frequencies
+    relative_frequencies = df[column_name].value_counts(normalize=True)
+    relative_frequencies = relative_frequencies.sort_index()
+
+    # Plotting the relative frequencies
+    ax = relative_frequencies.plot(kind='bar', color='skyblue', edgecolor='black')
+
+    # Negative Binomial distribution parameters
+    x_values = np.arange(relative_frequencies.index.min(), relative_frequencies.index.max() + 1)
+    nbinom_pmf = nbinom.pmf(x_values, r, p)
+
+    # Overlaying the Negative Binomial distribution
+    ax.plot(x_values, nbinom_pmf, 'r-', marker='o', label='Negative Binomial Distribution')
+
+    # Customize the plot
+    plt.title(f'Relative Frequencies of {column_name} with Negative Binomial Distribution Overlay')
+    plt.xlabel(column_name)
+    plt.ylabel('Relative Frequency / Negative Binomial PMF')
+    plt.legend()
+
+    # Display the plot
+    plt.show()
+
+plot_relative_frequencies(df_2015[(df_2015['Type_risk'] == 3) & 
+                      (df_2015['Area'] == 1) & 
+                      (df_2015['Year'] == 2015)], 'N_claims_year', 0.17, 0.12)
+plot_relative_frequencies(df_2016[(df_2016['Type_risk'] == 3) & 
+                      (df_2016['Area'] == 1) & 
+                      (df_2016['Year'] == 2016)], 'N_claims_year', 0.17, 0.21)
+plot_relative_frequencies(df_2018[(df_2018['Type_risk'] == 3) & 
+                      (df_2018['Area'] == 1) & 
+                      (df_2018['Year'] == 2018)], 'N_claims_year', 0.17, 0.45)
+plot_relative_frequencies(df_2017[(df_2017['Type_risk'] == 3) & 
+                      (df_2017['Area'] == 1) & 
+                      (df_2017['Year'] == 2017)], 'N_claims_year', 0.17, 0.31)
+
+plot_relative_frequencies(df_2015[(df_2015['Type_risk'] == 1) & 
+                      (df_2015['Area'] == 1) & 
+                      (df_2015['Year'] == 2015)], 'N_claims_year', 0.17, 0.2673)
+plot_relative_frequencies(df_2016[(df_2016['Type_risk'] == 1) & 
+                      (df_2016['Area'] == 1) & 
+                      (df_2016['Year'] == 2016)], 'N_claims_year', 0.17, 0.3968)
+plot_relative_frequencies(df_2018[(df_2018['Type_risk'] == 1) & 
+                      (df_2018['Area'] == 1) & 
+                      (df_2018['Year'] == 2018)], 'N_claims_year', 0.17, 0.68)
+plot_relative_frequencies(df_2017[(df_2017['Type_risk'] == 1) & 
+                      (df_2017['Area'] == 1) & 
+                      (df_2017['Year'] == 2017)], 'N_claims_year', 0.17, 0.5434)
+
+def neg_llf(alpha):
+    try:
+        model = sm.GLM(
+    df_dummies['N_claims_year'], 
+    sm.add_constant(df_dummies[['Area', 'Year', 'Type_risk_2', 'Type_risk_3', 'Type_risk_4']]), 
+    family=sm.families.NegativeBinomial()).fit()
+        return -model.llf
+    except:
+        return np.inf
+
+
+
+
+intercept = np.ones(len(df_dummies['N_claims_year']))
+
+# Initial guess for alpha
+alpha_init = 1.0
+
+# Find the optimal alpha
+result = minimize(neg_llf, alpha_init, bounds=[(0, 10)])
+
+# Get the optimal alpha and dispersion
+alpha_opt = result.x[0]
+dispersion = 1 / alpha_opt
+
+mle_nb = sm.NegativeBinomial(df_dummies['N_claims_year'], exog=intercept).fit()
+print(mle_nb)
+theta_nb = 1 / mle_nb.params['alpha']
+
+print("Naive Estimated alpha (dispersion parameter):", theta_nb)
+print("GLM Estimated alpha (dispersion parameter):", dispersion)
+
+import numpy as np
+import pandas as pd
+from scipy.optimize import minimize
+from scipy.stats import nbinom
+
+
+#so far so good, I have that N is following NBinom where alpha is constant and p varies over the time. 
+
+
+
 
 
 
