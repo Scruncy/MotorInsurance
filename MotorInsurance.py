@@ -15,9 +15,63 @@ from scipy.stats import poisson
 from scipy.stats import nbinom
 from statsmodels.genmod.families import family
 from statsmodels.genmod.families import links
+import itertools
+from scipy.stats import chi2_contingency, chi2
 
 
 df = pd.read_csv('data.csv', delimiter=';')  #add to use the property delimiter since the data are distinguished by ;
+
+
+def classify_values(df, type_column, column_name, max_values, ratio1=1/3, ratio2=2/3):
+    """
+    Classify values in a DataFrame column based on their ratio to the maximum value for each type.
+    
+    Parameters:
+    - df: The DataFrame containing the data.
+    - type_column: The name of the column that specifies the type.
+    - column_name: The name of the column to classify.
+    - max_values: A dictionary mapping each type to its maximum value.
+    - ratio1: The lower ratio threshold for classification.
+    - ratio2: The upper ratio threshold for classification.
+    
+    Returns:
+    - A DataFrame with a new column 'Classification' added.
+    """
+    
+    # Define the classification function
+    def classify(row):
+        type_value = row[type_column]
+        max_value = max_values.get(type_value)
+        if max_value is None:
+            return None  # If type_value is not in max_values
+        threshold_1 = max_value * ratio1
+        threshold_2 = max_value * ratio2
+        value = row[column_name]
+        if value < threshold_1:
+            return 'easy'
+        elif threshold_1 <= value < threshold_2:
+            return 'medium'
+        else:
+            return 'fast'
+    
+    # Apply the classification function
+    df['Classification'] = df.apply(classify, axis=1)
+    
+    return df
+
+
+
+# Define maximum values for each type
+max_values = {
+    1: 181,
+    2: 340,
+    3: 580,
+    4: 194
+}
+
+df = classify_values(df, 'Type_risk', 'Power', max_values)
+
+print(df['Classification'])
 print(df.columns)
 
 """
@@ -28,7 +82,7 @@ print(df.columns)
        'N_claims_year', 'N_claims_history', 'R_Claims_history', 'Type_risk',
        'Area', 'Second_driver', 'Year_matriculation', 'Power',
        'Cylinder_capacity', 'Value_vehicle', 'N_doors', 'Type_fuel', 'Length',
-       'Weight'],
+       'Weight', 'Classification'],
       dtype='object')
 
 """
@@ -316,56 +370,7 @@ print(df[df['Type_risk'] == 2]['Power'].max()) #340
 print(df[df['Type_risk'] == 3]['Power'].max()) #580
 print(df[df['Type_risk'] == 4]['Power'].max()) #194
 
-def classify_values(df, type_column, column_name, max_values, ratio1=1/3, ratio2=2/3):
-    """
-    Classify values in a DataFrame column based on their ratio to the maximum value for each type.
-    
-    Parameters:
-    - df: The DataFrame containing the data.
-    - type_column: The name of the column that specifies the type.
-    - column_name: The name of the column to classify.
-    - max_values: A dictionary mapping each type to its maximum value.
-    - ratio1: The lower ratio threshold for classification.
-    - ratio2: The upper ratio threshold for classification.
-    
-    Returns:
-    - A DataFrame with a new column 'Classification' added.
-    """
-    
-    # Define the classification function
-    def classify(row):
-        type_value = row[type_column]
-        max_value = max_values.get(type_value)
-        if max_value is None:
-            return None  # If type_value is not in max_values
-        threshold_1 = max_value * ratio1
-        threshold_2 = max_value * ratio2
-        value = row[column_name]
-        if value < threshold_1:
-            return 'easy'
-        elif threshold_1 <= value < threshold_2:
-            return 'medium'
-        else:
-            return 'fast'
-    
-    # Apply the classification function
-    df['Classification'] = df.apply(classify, axis=1)
-    
-    return df
 
-
-
-# Define maximum values for each type
-max_values = {
-    1: 181,
-    2: 340,
-    3: 580,
-    4: 194
-}
-
-df = classify_values(df, 'Type_risk', 'Power', max_values)
-
-print(df['Classification'])
 
 
 # as graphical visualisation suggests, they look like a possible poisson/binomial distribution splitting values
@@ -379,13 +384,13 @@ df_selected['Year'] = df_selected['Year'] - 2014
 
 
 # Assuming df is your DataFrame and var2 is the categorical variable
-df_dummies = pd.get_dummies(df_selected, columns=['Type_risk'], drop_first=True)
+df_dummies = pd.get_dummies(df_selected, columns=['Type_risk', 'Area', 'Classification'], drop_first=True)
 
 print(df_dummies.dtypes)
 
 
 # Define the formula for the GLM
-formula = 'N_claims_year ~ Area + Year +  Type_risk_2 + Type_risk_3 + Type_risk_4'
+formula = 'N_claims_year ~ Area_1 + Year +  Type_risk_2 + Type_risk_3 + Type_risk_4 + Classification_fast+Classification_medium'
 
 # Fit the GLM with Poisson family
 model = glm(formula=formula, data=df_dummies, family=Poisson()).fit()
@@ -403,17 +408,40 @@ mean_value = np.mean(df_selected[(df_selected['Classification'] == 'easy') &
 
 print(mean_value)
 
-'''
-Intercept                        -0.3798
-Type_risk_2[T.True]               1.3114
-Type_risk_3[T.True]               0.9585
-Type_risk_4[T.True]              -4.8585
-Area                              0.1625
-Year                             -0.5803
-'''
+
 
 import statsmodels.api as sm
 import statsmodels.formula.api as smf
+
+def neg_llf(alpha):
+    try:
+        model = sm.GLM(
+    df_dummies['N_claims_year'], 
+    sm.add_constant(df_dummies[['Area_1', 'Type_risk_2', 'Type_risk_3', 'Type_risk_4',  'Classification_fast','Classification_medium']]), 
+    family=sm.families.NegativeBinomial()).fit()
+        return -model.llf
+    except:
+        return np.inf
+    
+
+intercept = np.ones(len(df_dummies['N_claims_year']))
+
+# Initial guess for alpha
+alpha_init = 1.0
+
+# Find the optimal alpha
+result = minimize(neg_llf, alpha_init, bounds=[(0, 10)])
+
+# Get the optimal alpha and dispersion
+alpha_opt = result.x[0]
+dispersion = 1 / alpha_opt
+
+mle_nb = sm.NegativeBinomial(df_dummies['N_claims_year'], exog=intercept).fit()
+print(mle_nb)
+theta_nb = 1 / mle_nb.params['alpha']
+
+print("Naive Estimated alpha (dispersion parameter):", theta_nb)
+print("GLM Estimated alpha (dispersion parameter):", dispersion)
 
 for col in df_dummies.columns:
     if df_dummies[col].dtype == 'object':
@@ -422,14 +450,14 @@ for col in df_dummies.columns:
 # Check again to confirm the conversion
 print(df_dummies.dtypes)
 
-for col in ['Type_risk_2', 'Type_risk_3', 'Type_risk_4']:
+for col in ['Area_1', 'Type_risk_2', 'Type_risk_3', 'Type_risk_4',  'Classification_fast','Classification_medium']:
     df_dummies[col] = df_dummies[col].astype(int)
 
 # Define the Negative Binomial model
 negbinom_model = sm.GLM(
     df_dummies['N_claims_year'], 
-    sm.add_constant(df_dummies[['Area', 'Year', 'Type_risk_2', 'Type_risk_3', 'Type_risk_4']]), 
-    family=family.NegativeBinomial(alpha=0.17, link=links.log())
+    sm.add_constant(df_dummies[['Year', 'Area_1', 'Type_risk_2', 'Type_risk_3', 'Type_risk_4',  'Classification_fast','Classification_medium']]), 
+    family=family.NegativeBinomial(alpha=0.176, link=links.log())
 )
 
 # Fit the model
@@ -437,6 +465,21 @@ negbinom_result = negbinom_model.fit()
 
 # Print the summary of the model
 print(negbinom_result.summary())
+
+'''
+=========================================================================================
+                            coef    std err          z      P>|z|      [0.025      0.975]
+-----------------------------------------------------------------------------------------
+const                    -0.3533      0.033    -10.722      0.000      -0.418      -0.289
+Year                     -0.5902      0.006   -103.146      0.000      -0.601      -0.579
+Area_1                    0.1620      0.011     14.618      0.000       0.140       0.184
+Type_risk_2               1.2850      0.032     40.757      0.000       1.223       1.347
+Type_risk_3               0.9772      0.030     32.977      0.000       0.919       1.035
+Type_risk_4              -4.9679      1.001     -4.965      0.000      -6.929      -3.007
+Classification_fast      -0.5311      0.245     -2.167      0.030      -1.012      -0.051
+Classification_medium     0.2280      0.024      9.310      0.000       0.180       0.276
+=========================================================================================
+'''
 
 # Extract the dispersion parameter alpha from the fitted model
 alpha_estimated = negbinom_result.model.family.alpha
@@ -489,71 +532,254 @@ def plot_relative_frequencies(df, column_name, r, p):
     # Display the plot
     plt.show()
 
-plot_relative_frequencies(df_2015[(df_2015['Type_risk'] == 3) & 
-                      (df_2015['Area'] == 1) & 
-                      (df_2015['Year'] == 2015)], 'N_claims_year', 0.17, 0.12)
-plot_relative_frequencies(df_2016[(df_2016['Type_risk'] == 3) & 
-                      (df_2016['Area'] == 1) & 
-                      (df_2016['Year'] == 2016)], 'N_claims_year', 0.17, 0.21)
-plot_relative_frequencies(df_2018[(df_2018['Type_risk'] == 3) & 
-                      (df_2018['Area'] == 1) & 
-                      (df_2018['Year'] == 2018)], 'N_claims_year', 0.17, 0.45)
-plot_relative_frequencies(df_2017[(df_2017['Type_risk'] == 3) & 
-                      (df_2017['Area'] == 1) & 
-                      (df_2017['Year'] == 2017)], 'N_claims_year', 0.17, 0.31)
-
-plot_relative_frequencies(df_2015[(df_2015['Type_risk'] == 1) & 
-                      (df_2015['Area'] == 1) & 
-                      (df_2015['Year'] == 2015)], 'N_claims_year', 0.17, 0.2673)
-plot_relative_frequencies(df_2016[(df_2016['Type_risk'] == 1) & 
-                      (df_2016['Area'] == 1) & 
-                      (df_2016['Year'] == 2016)], 'N_claims_year', 0.17, 0.3968)
-plot_relative_frequencies(df_2018[(df_2018['Type_risk'] == 1) & 
-                      (df_2018['Area'] == 1) & 
-                      (df_2018['Year'] == 2018)], 'N_claims_year', 0.17, 0.68)
-plot_relative_frequencies(df_2017[(df_2017['Type_risk'] == 1) & 
-                      (df_2017['Area'] == 1) & 
-                      (df_2017['Year'] == 2017)], 'N_claims_year', 0.17, 0.5434)
-
-def neg_llf(alpha):
-    try:
-        model = sm.GLM(
-    df_dummies['N_claims_year'], 
-    sm.add_constant(df_dummies[['Area', 'Year', 'Type_risk_2', 'Type_risk_3', 'Type_risk_4']]), 
-    family=sm.families.NegativeBinomial()).fit()
-        return -model.llf
-    except:
-        return np.inf
 
 
+    
+# Define the different categories for each variable
+type_risk_values = df_2015['Type_risk'].unique()
+area_values = df_2015['Area'].unique()
+classification_values = df_2015['Classification'].unique()
+
+# Calculate p for the Negative Binomial distribution
+
+def transform_array(arr):
+    # Check if the length of the array is more than 4
+    if len(arr) > 7:
+        # Create a new array of length 7
+        new_arr = arr[:7]  # Copy the first 4 elements
+        
+        # Calculate the sum of the values beyond the 4th element
+        out_sum = sum(arr[7:])  # Sum elements from index 4 onward
+        
+        # Add the sum to the last element of the new array
+        new_arr[-1] += out_sum
+        
+        return new_arr
+    else:
+        # If the array length is 7 or less, return it unchanged
+        return arr
+
+def chi_squared_test_negative_binomial(df, column_name, r, p):
+    """
+    Perform a Chi-Squared test to validate the model against a Negative Binomial distribution.
+
+    Parameters:
+    - df: pandas DataFrame containing the data.
+    - column_name: The name of the column to analyze.
+    - r: The number of successes (dispersion parameter) for the Negative Binomial distribution.
+    - p: The probability of success in each trial for the Negative Binomial distribution.
+    - min_count_threshold: Minimum count to avoid small sample issues in Chi-Squared test.
+    """
+    
+    # Calculate observed frequencies
+
+    # Calculate observed frequencies
+    observed_frequencies = df[column_name].value_counts().sort_index()
+    tot = observed_frequencies.sum()
+
+    # Determine the maximum value
+    maximum = observed_frequencies.index.max()
+
+    # Create a range from 0 to maximum
+    possible_values = range(0, maximum + 1)
+
+    # Reindex to include all possible values, filling missing values with 0
+    observed_frequencies = observed_frequencies.reindex(possible_values, fill_value=0)
+
+    # Convert to a list
+    observed_frequencies_list = list(observed_frequencies)
+
+    # Output the result
+    print(observed_frequencies_list)
+
+        
+
+    # Define x-values for the Negative Binomial distribution
+    x_values = np.arange(observed_frequencies.index.min(), maximum + 1)
+    observed_frequencies = transform_array(observed_frequencies_list)
+    print(observed_frequencies)
+    
+    # Compute expected frequencies using the Negative Binomial PMF
+    expected_nb = nbinom.pmf(x_values, r, p)
+    expected_nb_count = expected_nb * (tot)
+    
+    accumulated_sum = 0
+    
+    for index in range(len(expected_nb_count)):
+        accumulated_sum += expected_nb_count[index]
+        if accumulated_sum > (tot):
+            expected_nb_count[index] -= (accumulated_sum - tot)
+            break
+    expected_nb_count_list = list(expected_nb_count)
+    expected_nb_count = transform_array(expected_nb_count)
+    
+    # Compute the Chi-Squared statistic
+    chi2_stat = np.sum((observed_frequencies - expected_nb_count) ** 2 / expected_nb_count)
+    df = len(observed_frequencies) - 1
+    p_value = 1 - chi2.cdf(chi2_stat, df)
+  
+    print(f"Chi-Squared Statistic: {chi2_stat:.4f}")
+    print(f"p-value: {p_value:.4f}")
+    
+    
+    print(expected_nb_count)
+    
+    
 
 
-intercept = np.ones(len(df_dummies['N_claims_year']))
+for type_risk, area, classification in itertools.product(type_risk_values, area_values, classification_values):
+    
+    # Filter the DataFrame for each combination
+    subset_df = df_2015[(df_2015['Type_risk'] == type_risk) & 
+                        (df_2015['Area'] == area) & 
+                        (df_2015['Classification'] == classification)]
+    
+    # Check if the subset is not empty
+    if not subset_df.empty:
+        print(f"Plotting for Type_risk={type_risk}, Area={area}, Classification={classification}")
+        
+# Prepare the row for computing mu
+        example_row = {
+            'conts' : 1,
+            'Year': 1, 
+            'Area_1': 1 if area == 1 else 0, 
+            'Type_risk_2': 1 if type_risk == 2 else 0, 
+            'Type_risk_3': 1 if type_risk == 3 else 0, 
+            'Type_risk_4': 1 if type_risk == 4 else 0,
+            'Classification_fast': 1 if classification == 'fast' else 0,
+            'Classification_medium': 1 if classification == 'medium' else 0
+        }
+        
+        spec = pd.DataFrame([example_row])    
+        # Compute mu using the fitted model
+        mu = negbinom_result.predict(spec)
+        print("Predicted mean (mu) for the specific values:", mu[0])
+    
+        # Compute p based on mu and the dispersion parameter alpha
+        alpha = 0.176  # This is your dispersion parameter (from the model fitting)
+        p = alpha / (alpha + mu)
+        
+        # Plot the relative frequencies
+        plot_relative_frequencies(subset_df, 'N_claims_year', alpha, p)
+        chi_squared_test_negative_binomial(subset_df, 'N_claims_year', alpha, p)
 
-# Initial guess for alpha
-alpha_init = 1.0
+        
+        
+for type_risk, area, classification in itertools.product(type_risk_values, area_values, classification_values):
+    
+    # Filter the DataFrame for each combination
+    subset_df = df_2016[(df_2016['Type_risk'] == type_risk) & 
+                        (df_2016['Area'] == area) & 
+                        (df_2016['Classification'] == classification)]
+    
+    # Check if the subset is not empty
+    if not subset_df.empty:
+        print(f"Plotting for Type_risk={type_risk}, Area={area}, Classification={classification}")
+        
+# Prepare the row for computing mu
+        example_row = {
+            'conts' : 1,
+            'Year': 2, 
+            'Area_1': 1 if area == 1 else 0, 
+            'Type_risk_2': 1 if type_risk == 2 else 0, 
+            'Type_risk_3': 1 if type_risk == 3 else 0, 
+            'Type_risk_4': 1 if type_risk == 4 else 0,
+            'Classification_fast': 1 if classification == 'fast' else 0,
+            'Classification_medium': 1 if classification == 'medium' else 0
+        }
+        
+        spec = pd.DataFrame([example_row])    
+        # Compute mu using the fitted model
+        mu = negbinom_result.predict(spec)
+        print("Predicted mean (mu) for the specific values:", mu[0])
+    
+        # Compute p based on mu and the dispersion parameter alpha
+        alpha = 0.176  # This is your dispersion parameter (from the model fitting)
+        p = alpha / (alpha + mu)
+        
+        # Call the plotting function
+        plot_relative_frequencies(subset_df, 'N_claims_year', alpha, p)
+        chi_squared_test_negative_binomial(subset_df, 'N_claims_year', alpha, p)
+        
 
-# Find the optimal alpha
-result = minimize(neg_llf, alpha_init, bounds=[(0, 10)])
+        
 
-# Get the optimal alpha and dispersion
-alpha_opt = result.x[0]
-dispersion = 1 / alpha_opt
+        
+for type_risk, area, classification in itertools.product(type_risk_values, area_values, classification_values):
+    
+    # Filter the DataFrame for each combination
+    subset_df = df_2017[(df_2017['Type_risk'] == type_risk) & 
+                        (df_2017['Area'] == area) & 
+                        (df_2017['Classification'] == classification)]
+    
+    # Check if the subset is not empty
+    if not subset_df.empty:
+        print(f"Plotting for Type_risk={type_risk}, Area={area}, Classification={classification}")
+        
+# Prepare the row for computing mu
+        example_row = {
+            'conts' : 1,
+            'Year': 3, 
+            'Area_1': 1 if area == 1 else 0, 
+            'Type_risk_2': 1 if type_risk == 2 else 0, 
+            'Type_risk_3': 1 if type_risk == 3 else 0, 
+            'Type_risk_4': 1 if type_risk == 4 else 0,
+            'Classification_fast': 1 if classification == 'fast' else 0,
+            'Classification_medium': 1 if classification == 'medium' else 0
+        }
+        
+        spec = pd.DataFrame([example_row])    
+        # Compute mu using the fitted model
+        mu = negbinom_result.predict(spec)
+        print("Predicted mean (mu) for the specific values:", mu[0])
+    
+        # Compute p based on mu and the dispersion parameter alpha
+        alpha = 0.176  # This is your dispersion parameter (from the model fitting)
+        p = alpha / (alpha + mu)
+        
+        # Call the plotting function
+        plot_relative_frequencies(subset_df, 'N_claims_year', alpha, p)
+        chi_squared_test_negative_binomial(subset_df, 'N_claims_year', alpha, p)
+        
+for type_risk, area, classification in itertools.product(type_risk_values, area_values, classification_values):
+    
+    # Filter the DataFrame for each combination
+    subset_df = df_2018[(df_2018['Type_risk'] == type_risk) & 
+                        (df_2018['Area'] == area) & 
+                        (df_2018['Classification'] == classification)]
+    
+    # Check if the subset is not empty
+    if not subset_df.empty:
+        print(f"Plotting for Type_risk={type_risk}, Area={area}, Classification={classification}")
+        
+# Prepare the row for computing mu
+        example_row = {
+            'conts' : 1,
+            'Year': 4, 
+            'Area_1': 1 if area == 1 else 0, 
+            'Type_risk_2': 1 if type_risk == 2 else 0, 
+            'Type_risk_3': 1 if type_risk == 3 else 0, 
+            'Type_risk_4': 1 if type_risk == 4 else 0,
+            'Classification_fast': 1 if classification == 'fast' else 0,
+            'Classification_medium': 1 if classification == 'medium' else 0
+        }
+        
+        spec = pd.DataFrame([example_row])    
+        # Compute mu using the fitted model
+        mu = negbinom_result.predict(spec)
+        print("Predicted mean (mu) for the specific values:", mu[0])
+    
+        # Compute p based on mu and the dispersion parameter alpha
+        alpha = 0.176  # This is your dispersion parameter (from the model fitting)
+        p = alpha / (alpha + mu)
+        
+        # Call the plotting function
+        plot_relative_frequencies(subset_df, 'N_claims_year', alpha, p)
+        chi_squared_test_negative_binomial(subset_df, 'N_claims_year', alpha, p)
 
-mle_nb = sm.NegativeBinomial(df_dummies['N_claims_year'], exog=intercept).fit()
-print(mle_nb)
-theta_nb = 1 / mle_nb.params['alpha']
-
-print("Naive Estimated alpha (dispersion parameter):", theta_nb)
-print("GLM Estimated alpha (dispersion parameter):", dispersion)
-
-import numpy as np
-import pandas as pd
-from scipy.optimize import minimize
-from scipy.stats import nbinom
-
-
-#so far so good, I have that N is following NBinom where alpha is constant and p varies over the time. 
+#so far so good, I have that N is following NBinom where alpha is constant and p varies over the time. The grapich response
+# is pretty positive, since we have to think that these are real datas, so ofc it's normal that sometimes they are not 
+# perfectly fitted.
 
 
 
