@@ -1,4 +1,4 @@
-
+﻿
 
 import pandas as pd
 import numpy as np
@@ -11,7 +11,7 @@ from statsmodels.formula.api import glm
 from statsmodels.genmod.families import Gaussian, Poisson, Binomial
 from datetime import datetime
 import matplotlib.pyplot as plt
-from scipy.stats import poisson
+from scipy.stats import poisson, norm
 from scipy.stats import nbinom
 from statsmodels.genmod.families import family
 from statsmodels.genmod.families import links
@@ -416,9 +416,9 @@ import statsmodels.formula.api as smf
 def neg_llf(alpha):
     try:
         model = sm.GLM(
-    df_dummies['N_claims_year'], 
-    sm.add_constant(df_dummies[['Area_1', 'Type_risk_2', 'Type_risk_3', 'Type_risk_4',  'Classification_fast','Classification_medium']]), 
-    family=sm.families.NegativeBinomial()).fit()
+            df_dummies['N_claims_year'], 
+            sm.add_constant(df_dummies[['Area_1', 'Type_risk_2', 'Type_risk_3', 'Type_risk_4',  'Classification_fast','Classification_medium', 'Year']]), 
+            family=family.NegativeBinomial(alpha, link=links.NegativeBinomial(alpha)))
         return -model.llf
     except:
         return np.inf
@@ -434,14 +434,8 @@ result = minimize(neg_llf, alpha_init, bounds=[(0, 10)])
 
 # Get the optimal alpha and dispersion
 alpha_opt = result.x[0]
-dispersion = 1 / alpha_opt
 
-mle_nb = sm.NegativeBinomial(df_dummies['N_claims_year'], exog=intercept).fit()
-print(mle_nb)
-theta_nb = 1 / mle_nb.params['alpha']
-
-print("Naive Estimated alpha (dispersion parameter):", theta_nb)
-print("GLM Estimated alpha (dispersion parameter):", dispersion)
+print(alpha_opt)
 
 for col in df_dummies.columns:
     if df_dummies[col].dtype == 'object':
@@ -457,7 +451,7 @@ for col in ['Area_1', 'Type_risk_2', 'Type_risk_3', 'Type_risk_4',  'Classificat
 negbinom_model = sm.GLM(
     df_dummies['N_claims_year'], 
     sm.add_constant(df_dummies[['Year', 'Area_1', 'Type_risk_2', 'Type_risk_3', 'Type_risk_4',  'Classification_fast','Classification_medium']]), 
-    family=family.NegativeBinomial(alpha=0.176, link=links.log())
+    family=family.NegativeBinomial(alpha=0.1760965105877899, link=links.NegativeBinomial(0.1760965105877899))
 )
 
 # Fit the model
@@ -613,21 +607,29 @@ def chi_squared_test_negative_binomial(df, column_name, r, p):
     expected_nb_count_list = list(expected_nb_count)
     expected_nb_count = transform_array(expected_nb_count)
     
+    print(expected_nb_count)
+    
     # Compute the Chi-Squared statistic
     chi2_stat = np.sum((observed_frequencies - expected_nb_count) ** 2 / expected_nb_count)
+    
     df = len(observed_frequencies) - 1
+    if df ==0:
+        df =1
     p_value = 1 - chi2.cdf(chi2_stat, df)
   
     print(f"Chi-Squared Statistic: {chi2_stat:.4f}")
     print(f"p-value: {p_value:.4f}")
     
-    
-    print(expected_nb_count)
-    
+    return p_value
     
 
+    
+    
+counter = 0
 
 for type_risk, area, classification in itertools.product(type_risk_values, area_values, classification_values):
+    
+    
     
     # Filter the DataFrame for each combination
     subset_df = df_2015[(df_2015['Type_risk'] == type_risk) & 
@@ -637,6 +639,7 @@ for type_risk, area, classification in itertools.product(type_risk_values, area_
     # Check if the subset is not empty
     if not subset_df.empty:
         print(f"Plotting for Type_risk={type_risk}, Area={area}, Classification={classification}")
+        counter = counter +1
         
 # Prepare the row for computing mu
         example_row = {
@@ -651,26 +654,76 @@ for type_risk, area, classification in itertools.product(type_risk_values, area_
         }
         
         spec = pd.DataFrame([example_row])    
+        eta = np.dot(spec, negbinom_result.params)
+        cov_matrix = negbinom_result.cov_params()
+        # Calculate the standard error of the prediction
+        var_eta = np.dot(np.dot(spec, cov_matrix), spec.T).diagonal()
+        se_eta = np.sqrt(var_eta)
+        # Compute the critical value for the specified confidence level
+        z_score = norm.ppf((1 + 0.95) / 2)
+    
+        # Compute the confidence intervals for the linear predictor (eta)
+        eta_lower = eta - z_score * se_eta
+        eta_upper = eta + z_score * se_eta
+        
+        print(eta)
+    
+        # Transform back to the original scale (mu)
+        mu = links.NegativeBinomial(0.1760965105877899).inverse(eta)
+        mu_lower = links.NegativeBinomial(0.1760965105877899).inverse(eta_lower)
+        mu_upper = links.NegativeBinomial(0.1760965105877899).inverse(eta_upper)
+        print(mu_lower)
+        print(mu_upper)
         # Compute mu using the fitted model
         mu = negbinom_result.predict(spec)
         print("Predicted mean (mu) for the specific values:", mu[0])
+        
     
         # Compute p based on mu and the dispersion parameter alpha
-        alpha = 0.176  # This is your dispersion parameter (from the model fitting)
+        alpha = 0.1760965105877899  # This is your dispersion parameter (from the model fitting)
         p = alpha / (alpha + mu)
+        
         
         # Plot the relative frequencies
         plot_relative_frequencies(subset_df, 'N_claims_year', alpha, p)
-        chi_squared_test_negative_binomial(subset_df, 'N_claims_year', alpha, p)
+        
+    # Define a range of mu values within the confidence interval
+        mu_values = np.linspace(mu_lower, mu_upper, 100)
+        alpha_values = np. linspace(0, 2)
+        max_p_value = 0
+        
+        if chi_squared_test_negative_binomial(subset_df, 'N_claims_year', alpha, p) < 0.05:
+            for alpha in alpha_values:
+                for mu in mu_values:
+                    # Compute p based on mu and the dispersion parameter alpha
+                    p = alpha / (alpha + mu)
+                    print(p)
+        
+                    # Run the chi-squared test for this specific value of mu
+                    p_value = chi_squared_test_negative_binomial(subset_df, 'N_claims_year', alpha, p)
+        
+                    # Check if this p-value is the highest found so far
+                    if p_value > max_p_value:
+                        max_p_value = p_value
+                        best_mu = mu
+                    if p_value > 0.05:
+                        print("ok")
+                        break
+                if p_value > 0.05:
+                    break
+            
+        
+print(counter)
 
         
-        
+
 for type_risk, area, classification in itertools.product(type_risk_values, area_values, classification_values):
     
     # Filter the DataFrame for each combination
     subset_df = df_2016[(df_2016['Type_risk'] == type_risk) & 
                         (df_2016['Area'] == area) & 
                         (df_2016['Classification'] == classification)]
+
     
     # Check if the subset is not empty
     if not subset_df.empty:
@@ -694,7 +747,7 @@ for type_risk, area, classification in itertools.product(type_risk_values, area_
         print("Predicted mean (mu) for the specific values:", mu[0])
     
         # Compute p based on mu and the dispersion parameter alpha
-        alpha = 0.176  # This is your dispersion parameter (from the model fitting)
+        alpha = 0.1760965105877899 # This is your dispersion parameter (from the model fitting)
         p = alpha / (alpha + mu)
         
         # Call the plotting function
@@ -702,7 +755,7 @@ for type_risk, area, classification in itertools.product(type_risk_values, area_
         chi_squared_test_negative_binomial(subset_df, 'N_claims_year', alpha, p)
         
 
-        
+
 
         
 for type_risk, area, classification in itertools.product(type_risk_values, area_values, classification_values):
@@ -734,12 +787,14 @@ for type_risk, area, classification in itertools.product(type_risk_values, area_
         print("Predicted mean (mu) for the specific values:", mu[0])
     
         # Compute p based on mu and the dispersion parameter alpha
-        alpha = 0.176  # This is your dispersion parameter (from the model fitting)
+        alpha = 0.1760965105877899 # This is your dispersion parameter (from the model fitting)
         p = alpha / (alpha + mu)
         
         # Call the plotting function
         plot_relative_frequencies(subset_df, 'N_claims_year', alpha, p)
         chi_squared_test_negative_binomial(subset_df, 'N_claims_year', alpha, p)
+        
+print("done")
         
 for type_risk, area, classification in itertools.product(type_risk_values, area_values, classification_values):
     
@@ -770,7 +825,7 @@ for type_risk, area, classification in itertools.product(type_risk_values, area_
         print("Predicted mean (mu) for the specific values:", mu[0])
     
         # Compute p based on mu and the dispersion parameter alpha
-        alpha = 0.176  # This is your dispersion parameter (from the model fitting)
+        alpha = 0.1760965105877899 # This is your dispersion parameter (from the model fitting)
         p = alpha / (alpha + mu)
         
         # Call the plotting function
