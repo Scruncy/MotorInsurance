@@ -17,6 +17,8 @@ from statsmodels.genmod.families import family
 from statsmodels.genmod.families import links
 import itertools
 from scipy.stats import chi2_contingency, chi2
+import seaborn as sns
+
 
 
 df = pd.read_csv('data.csv', delimiter=';')  #add to use the property delimiter since the data are distinguished by ;
@@ -112,9 +114,25 @@ df_2016 = df[df['Year'] == 2016]
 df_2017 = df[df['Year'] == 2017]
 df_2018 = df[df['Year'] == 2018]
 
+print(df_2015[ (df_2015['Classification'] == 'easy') & (df_2015['Cost_claims_year'] > 0)]['Cost_claims_year'])
+
+# Calculate the mean
+mean_cost = np.mean(df_2015[(df_2015['N_claims_year'] == 1) & (df_2015['Type_risk'] == 3)]['Cost_claims_year'])
+print(mean_cost)
+
+# Calculate the variance
+variance_cost = np.var(df_2015[(df_2015['N_claims_year'] == 1) & (df_2015['Type_risk'] == 3)]['Cost_claims_year'])
+print(variance_cost)
+
+# Calculate the skewness
+skewness_cost = df_2015[(df_2015['N_claims_year'] == 1) & (df_2015['Type_risk'] == 3)]['Cost_claims_year'].skew()
+print(skewness_cost)
+
+# Assuming df_2015 is your DataFrame and 'Cost_claims_year' is the column of interest
+sns.kdeplot(df_2015[(df_2015['N_claims_year'] == 3) & (df_2015['Type_risk'] == 3)]['Cost_claims_year'], bw_adjust=0.5)
 
 plt.figure(figsize=(10, 6))
-plt.hist(df_2015[(df_2015['Type_risk'] == 3) & (df_2015['Value_vehicle'] < 50000)]['Value_vehicle'], bins=30, edgecolor='black', density=True)  # Adjust number of bins as needed
+plt.hist(df_2015['Cost_claims_year'], bins=100, edgecolor='black', density=True)  # Adjust number of bins as needed
 plt.xlabel('Value')
 plt.ylabel('Frequency')
 plt.title('Histogram of Values')
@@ -380,17 +398,17 @@ print(df[df['Type_risk'] == 4]['Power'].max()) #194
 
 selected_columns = ['N_claims_year', 'Type_risk', 'Classification', 'Area', 'Year']
 df_selected = df[selected_columns]
-df_selected['Year'] = df_selected['Year'] - 2014
+df_selected['Year'] = df_selected['Year']
 
 
 # Assuming df is your DataFrame and var2 is the categorical variable
-df_dummies = pd.get_dummies(df_selected, columns=['Type_risk', 'Area', 'Classification'], drop_first=True)
+df_dummies = pd.get_dummies(df_selected, columns=['Type_risk', 'Area', 'Classification', 'Year'], drop_first=True)
 
 print(df_dummies.dtypes)
 
 
 # Define the formula for the GLM
-formula = 'N_claims_year ~ Area_1 + Year +  Type_risk_2 + Type_risk_3 + Type_risk_4 + Classification_fast+Classification_medium'
+formula = 'N_claims_year ~ Area_1 + Year_2016 + Year_2017 + Year_2018 + Type_risk_2 + Type_risk_3 + Type_risk_4 + Classification_fast+Classification_medium'
 
 # Fit the GLM with Poisson family
 model = glm(formula=formula, data=df_dummies, family=Poisson()).fit()
@@ -417,7 +435,7 @@ def neg_llf(alpha):
     try:
         model = sm.GLM(
             df_dummies['N_claims_year'], 
-            sm.add_constant(df_dummies[['Area_1', 'Type_risk_2', 'Type_risk_3', 'Type_risk_4',  'Classification_fast','Classification_medium', 'Year']]), 
+            sm.add_constant(df_dummies[['Area_1', 'Type_risk_2', 'Type_risk_3', 'Type_risk_4',  'Classification_fast','Classification_medium', 'Year_2016' , 'Year_2017',  'Year_2018']]), 
             family=family.NegativeBinomial(alpha, link=links.NegativeBinomial(alpha)))
         return -model.llf
     except:
@@ -444,13 +462,13 @@ for col in df_dummies.columns:
 # Check again to confirm the conversion
 print(df_dummies.dtypes)
 
-for col in ['Area_1', 'Type_risk_2', 'Type_risk_3', 'Type_risk_4',  'Classification_fast','Classification_medium']:
+for col in ['Area_1', 'Type_risk_2', 'Type_risk_3', 'Type_risk_4',  'Classification_fast','Classification_medium', 'Year_2016' , 'Year_2017',  'Year_2018']:
     df_dummies[col] = df_dummies[col].astype(int)
 
 # Define the Negative Binomial model
 negbinom_model = sm.GLM(
     df_dummies['N_claims_year'], 
-    sm.add_constant(df_dummies[['Year', 'Area_1', 'Type_risk_2', 'Type_risk_3', 'Type_risk_4',  'Classification_fast','Classification_medium']]), 
+    sm.add_constant(df_dummies[['Area_1', 'Type_risk_2', 'Type_risk_3', 'Type_risk_4',  'Classification_fast','Classification_medium', 'Year_2016' , 'Year_2017',  'Year_2018']]), 
     family=family.NegativeBinomial(alpha=0.1760965105877899, link=links.NegativeBinomial(0.1760965105877899))
 )
 
@@ -464,14 +482,16 @@ print(negbinom_result.summary())
 =========================================================================================
                             coef    std err          z      P>|z|      [0.025      0.975]
 -----------------------------------------------------------------------------------------
-const                    -0.3533      0.033    -10.722      0.000      -0.418      -0.289
-Year                     -0.5902      0.006   -103.146      0.000      -0.601      -0.579
-Area_1                    0.1620      0.011     14.618      0.000       0.140       0.184
-Type_risk_2               1.2850      0.032     40.757      0.000       1.223       1.347
-Type_risk_3               0.9772      0.030     32.977      0.000       0.919       1.035
-Type_risk_4              -4.9679      1.001     -4.965      0.000      -6.929      -3.007
-Classification_fast      -0.5311      0.245     -2.167      0.030      -1.012      -0.051
-Classification_medium     0.2280      0.024      9.310      0.000       0.180       0.276
+const                    -3.2023      0.033    -97.571      0.000      -3.267      -3.138
+Area_1                    0.1453      0.010     14.450      0.000       0.126       0.165
+Type_risk_2               1.2172      0.030     40.376      0.000       1.158       1.276
+Type_risk_3               0.9367      0.029     32.735      0.000       0.881       0.993
+Type_risk_4              -4.9109      1.000     -4.909      0.000      -6.872      -2.950
+Classification_fast      -0.5481      0.238     -2.299      0.022      -1.015      -0.081
+Classification_medium     0.2059      0.022      9.513      0.000       0.163       0.248
+Year_2016                -0.0384      0.018     -2.161      0.031      -0.073      -0.004
+Year_2017                -0.5711      0.019    -30.599      0.000      -0.608      -0.534
+Year_2018                -1.4639      0.021    -68.099      0.000      -1.506      -1.422
 =========================================================================================
 '''
 
@@ -610,7 +630,12 @@ def chi_squared_test_negative_binomial(df, column_name, r, p):
     print(expected_nb_count)
     
     # Compute the Chi-Squared statistic
-    chi2_stat = np.sum((observed_frequencies - expected_nb_count) ** 2 / expected_nb_count)
+    chi2_stat = 0
+    for obs, exp in zip(observed_frequencies, expected_nb_count):
+        if obs < 0.05 or exp < 0.05:
+            break
+        chi2_stat += (obs - exp) ** 2 / exp
+
     
     df = len(observed_frequencies) - 1
     if df ==0:
@@ -623,7 +648,7 @@ def chi_squared_test_negative_binomial(df, column_name, r, p):
     return p_value
     
 
-    
+''' 
     
 counter = 0
 
@@ -643,17 +668,20 @@ for type_risk, area, classification in itertools.product(type_risk_values, area_
         
 # Prepare the row for computing mu
         example_row = {
-            'conts' : 1,
-            'Year': 1, 
+            'conts' : 1, 
             'Area_1': 1 if area == 1 else 0, 
             'Type_risk_2': 1 if type_risk == 2 else 0, 
             'Type_risk_3': 1 if type_risk == 3 else 0, 
             'Type_risk_4': 1 if type_risk == 4 else 0,
             'Classification_fast': 1 if classification == 'fast' else 0,
-            'Classification_medium': 1 if classification == 'medium' else 0
+            'Classification_medium': 1 if classification == 'medium' else 0,
+            'Year_2016': 0, 
+            'Year_2017': 0,
+            'Year_2018': 0,
         }
         
-        spec = pd.DataFrame([example_row])    
+        spec = pd.DataFrame([example_row])
+        print(spec)
         eta = np.dot(spec, negbinom_result.params)
         cov_matrix = negbinom_result.cov_params()
         # Calculate the standard error of the prediction
@@ -689,7 +717,7 @@ for type_risk, area, classification in itertools.product(type_risk_values, area_
         
     # Define a range of mu values within the confidence interval
         mu_values = np.linspace(mu_lower, mu_upper, 100)
-        alpha_values = np. linspace(0, 2)
+        alpha_values = np. linspace(0.05, 2)
         max_p_value = 0
         
         if chi_squared_test_negative_binomial(subset_df, 'N_claims_year', alpha, p) < 0.05:
@@ -731,14 +759,16 @@ for type_risk, area, classification in itertools.product(type_risk_values, area_
         
 # Prepare the row for computing mu
         example_row = {
-            'conts' : 1,
-            'Year': 2, 
+            'conts' : 1, 
             'Area_1': 1 if area == 1 else 0, 
             'Type_risk_2': 1 if type_risk == 2 else 0, 
             'Type_risk_3': 1 if type_risk == 3 else 0, 
             'Type_risk_4': 1 if type_risk == 4 else 0,
             'Classification_fast': 1 if classification == 'fast' else 0,
-            'Classification_medium': 1 if classification == 'medium' else 0
+            'Classification_medium': 1 if classification == 'medium' else 0,
+            'Year_2016': 1, 
+            'Year_2017': 0,
+            'Year_2018': 0,
         }
         
         spec = pd.DataFrame([example_row])    
@@ -752,10 +782,33 @@ for type_risk, area, classification in itertools.product(type_risk_values, area_
         
         # Call the plotting function
         plot_relative_frequencies(subset_df, 'N_claims_year', alpha, p)
-        chi_squared_test_negative_binomial(subset_df, 'N_claims_year', alpha, p)
+        # Define a range of mu values within the confidence interval
+        mu_values = np.linspace(mu_lower, mu_upper, 100)
+        alpha_values = np. linspace(0.05, 2)
+        max_p_value = 0
+        
+        if chi_squared_test_negative_binomial(subset_df, 'N_claims_year', alpha, p) < 0.05:
+            for alpha in alpha_values:
+                for mu in mu_values:
+                    # Compute p based on mu and the dispersion parameter alpha
+                    p = alpha / (alpha + mu)
+                    print(p)
+        
+                    # Run the chi-squared test for this specific value of mu
+                    p_value = chi_squared_test_negative_binomial(subset_df, 'N_claims_year', alpha, p)
+        
+                    # Check if this p-value is the highest found so far
+                    if p_value > max_p_value:
+                        max_p_value = p_value
+                        best_mu = mu
+                    if p_value > 0.05:
+                        print("ok")
+                        break
+                if p_value > 0.05:
+                    break
         
 
-
+'''
 
         
 for type_risk, area, classification in itertools.product(type_risk_values, area_values, classification_values):
@@ -771,14 +824,16 @@ for type_risk, area, classification in itertools.product(type_risk_values, area_
         
 # Prepare the row for computing mu
         example_row = {
-            'conts' : 1,
-            'Year': 3, 
+            'conts' : 1, 
             'Area_1': 1 if area == 1 else 0, 
             'Type_risk_2': 1 if type_risk == 2 else 0, 
             'Type_risk_3': 1 if type_risk == 3 else 0, 
             'Type_risk_4': 1 if type_risk == 4 else 0,
             'Classification_fast': 1 if classification == 'fast' else 0,
-            'Classification_medium': 1 if classification == 'medium' else 0
+            'Classification_medium': 1 if classification == 'medium' else 0,
+            'Year_2016': 0, 
+            'Year_2017': 1,
+            'Year_2018': 0,
         }
         
         spec = pd.DataFrame([example_row])    
@@ -809,14 +864,16 @@ for type_risk, area, classification in itertools.product(type_risk_values, area_
         
 # Prepare the row for computing mu
         example_row = {
-            'conts' : 1,
-            'Year': 4, 
+            'conts' : 1, 
             'Area_1': 1 if area == 1 else 0, 
             'Type_risk_2': 1 if type_risk == 2 else 0, 
             'Type_risk_3': 1 if type_risk == 3 else 0, 
             'Type_risk_4': 1 if type_risk == 4 else 0,
             'Classification_fast': 1 if classification == 'fast' else 0,
-            'Classification_medium': 1 if classification == 'medium' else 0
+            'Classification_medium': 1 if classification == 'medium' else 0,
+            'Year_2016': 0, 
+            'Year_2017': 0,
+            'Year_2018': 1,
         }
         
         spec = pd.DataFrame([example_row])    
