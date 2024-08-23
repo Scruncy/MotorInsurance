@@ -8,7 +8,7 @@ from scipy.optimize import minimize
 from scipy.special import gammaln
 import statsmodels.api as sm
 from statsmodels.formula.api import glm
-from statsmodels.genmod.families import Gaussian, Poisson, Binomial
+from statsmodels.genmod.families import Gaussian, Poisson, Binomial, Tweedie
 from datetime import datetime
 import matplotlib.pyplot as plt
 from scipy.stats import poisson, norm
@@ -16,8 +16,11 @@ from scipy.stats import nbinom
 from statsmodels.genmod.families import family
 from statsmodels.genmod.families import links
 import itertools
-from scipy.stats import chi2_contingency, chi2
+from scipy.stats import chi2_contingency, chi2, expon, gaussian_kde, kstest, gamma
 import seaborn as sns
+from scipy import stats
+from scipy.integrate import simps
+
 
 
 
@@ -99,6 +102,7 @@ print(df['Date_last_renewal'].min())
 print(df['Date_last_renewal'].max())
 
 
+
 #as we can see, there are 4 years of data in the portofolio, from 2015 to 2018.
 
 #since the analysis should be made yearly, I split the portofolio into 4 different years and work singularly: the idea
@@ -129,7 +133,7 @@ skewness_cost = df_2015[(df_2015['N_claims_year'] == 1) & (df_2015['Type_risk'] 
 print(skewness_cost)
 
 # Assuming df_2015 is your DataFrame and 'Cost_claims_year' is the column of interest
-sns.kdeplot(df_2015[(df_2015['N_claims_year'] == 3) & (df_2015['Type_risk'] == 3)]['Cost_claims_year'], bw_adjust=0.5)
+# sns.kdeplot(df_2015[(df_2015['N_claims_year'] == 3) & (df_2015['Type_risk'] == 3)]['Cost_claims_year'], bw_adjust=0.5)
 
 plt.figure(figsize=(10, 6))
 plt.hist(df_2015['Cost_claims_year'], bins=100, edgecolor='black', density=True)  # Adjust number of bins as needed
@@ -808,8 +812,6 @@ for type_risk, area, classification in itertools.product(type_risk_values, area_
                     break
         
 
-'''
-
         
 for type_risk, area, classification in itertools.product(type_risk_values, area_values, classification_values):
     
@@ -894,9 +896,195 @@ for type_risk, area, classification in itertools.product(type_risk_values, area_
 # perfectly fitted.
 
 
+'''
+
+
+selected_columns = ['N_claims_year', 'Type_risk', 'Classification', 'Area', 'Year', 'Cost_claims_year']
+df_selected = df[selected_columns]
+df_selected['Year'] = df_selected['Year']
+df_selected = df_selected[df_selected['N_claims_year'] == 1]
 
 
 
+# Assuming df is your DataFrame and var2 is the categorical variable
+df_dummies = pd.get_dummies(df_selected, columns=['Type_risk', 'Area', 'Classification', 'Year'], drop_first=True)
+
+print(df_dummies.dtypes)
+
+
+# Define the formula for the GLM
+formula = 'Cost_claims_year ~ Area_1 + Year_2016 + Year_2017 + Year_2018 + Type_risk_2 + Type_risk_3 + Classification_fast+Classification_medium'
+
+# Fit the GLM with Poisson family
+model = glm(formula=formula, data=df_dummies, family=Tweedie(var_power=1)).fit()
+
+# Print the summary of the model
+print(model.summary())
+
+# So we can see that Y stays the same and it doesn't really matter any other variable. Since this result, an analysis will
+# be made on the aggregate and then considered equal for everything. To consider the fact that the assumption is that
+# in case of two claims, the distribution is simply the sum of the previous two.
+
+# 300, 850 and so on
+
+# Create a range of values for plotting
+data = df[(df['N_claims_year'] == 1) & (df['Area'] == 0)]['Cost_claims_year']
+x = np.linspace(min(data), max(data), 1000)
+
+# Plotting the histogram as an empirical PDF
+plt.figure(figsize=(8, 6))
+plt.hist(data, bins=500, density=True, alpha=0.6, color='k', edgecolor='k', label='Empirical PDF (Histogram)')
+
+plt.title('Empirical PDF of the Data (Histogram)')
+plt.xlabel('Data')
+plt.ylabel('Density')
+plt.legend()
+plt.grid(True)
+plt.show()
+
+# Kernel Density Estimate (KDE) for the empirical PDF
+kde = gaussian_kde(data)
+pdf_empirical = kde(x)
+integral = simps(pdf_empirical, x)
+print(pdf_empirical.sum())
+
+# Plotting the empirical PDF
+plt.figure(figsize=(8, 6))
+plt.plot(x, pdf_empirical, 'k-', label='Empirical PDF (KDE)')
+plt.title('Empirical PDF of the Data')
+plt.xlabel('Data')
+plt.ylabel('Density')
+plt.legend()
+plt.grid(True)
+plt.show()
+
+
+data = df[(df['N_claims_year'] == 1) & (df['Area'] == 0) & (df['Cost_claims_year'] >250) & (df['Cost_claims_year'] <= 850) ]['Cost_claims_year'] 
+# Define the threshold
+# Filter values greater than 850 and subtract 850
+
+sns.kdeplot(data, bw_adjust=0.5)
+
+from scipy.stats import (
+    norm, expon, gamma, beta, lognorm, weibull_min, 
+    uniform, kstest, chi2, t, logistic, pareto, gaussian_kde
+)
+
+# List of distributions to fit and their corresponding names for kstest
+distributions = {
+    'Normal': (norm, 'norm'),
+    'Exponential': (expon, 'expon'),
+    'Gamma': (gamma, 'gamma'),
+    'Beta': (beta, 'beta'),
+    'Log-Normal': (lognorm, 'lognorm'),
+    'Weibull': (weibull_min, 'weibull_min'),
+    'Uniform': (uniform, 'uniform'),
+    'Chi-Square': (chi2, 'chi2'),
+    'Logistic': (logistic, 'logistic'),
+    'Pareto': (pareto, 'pareto')
+}
+
+# Create a range of values for plotting the PDFs
+x = np.linspace(min(data), max(data), 100)
+
+# Kernel Density Estimate (KDE) for the empirical PDF
+kde = gaussian_kde(data)
+pdf_empirical = kde(x)
+
+# Plot each fitted distribution on a separate graph
+for name, (dist, _) in distributions.items():
+    plt.figure(figsize=(10, 6))
+    
+    try:
+        # Fit the distribution to the data
+        params = dist.fit(data)
+        print(params)
+        
+        # Compute the PDF for the fitted distribution
+        pdf_fitted = dist.pdf(x, *params)
+        
+        # Plot the empirical PDF and the fitted PDF
+        plt.plot(x, pdf_empirical, 'k--', label='Empirical PDF (KDE)')
+        plt.plot(x, pdf_fitted, label=f'Fitted {name}')
+        plt.title(f'Fitted {name} Distribution')
+        plt.xlabel('Data')
+        plt.ylabel('Density')
+        plt.legend()
+        plt.grid(True)
+        plt.show()
+        
+    except Exception as e:
+        print(f"Could not fit {name}: {e}")
+        
+
+# log-normal over 850. gamma under 250, weibull the other one
+
+
+data = df[(df['N_claims_year'] == 1) & (df['Area'] == 0)]['Cost_claims_year']
+
+# Define thresholds
+thresholds = [250, 850]
+
+np.random.seed(42)
+
+# Split data into regions
+data1 = data[data < thresholds[0]]
+print(len(data1))
+data2 = data[(data >= thresholds[0]) & (data <= thresholds[1])]
+print(len(data2))
+data3 = data[data > thresholds[1]]
+
+# Fit distributions
+params_gamma = gamma.fit(data1)
+params_weibull = weibull_min.fit(data2)
+params_lognorm = lognorm.fit(data3)
+
+# Calculate proportions for each segment
+total_length = len(data)
+prop_gamma = len(data1) / total_length
+prop_weibull = len(data2) / total_length
+prop_lognorm = len(data3) / total_length
+
+# Generate synthetic data using the proportions
+def generate_synthetic_data(size):
+    synthetic_data = []
+    for _ in range(size):
+        u = np.random.uniform()
+        if u < prop_gamma:
+            synthetic_data.append(gamma.rvs(*params_gamma) if params_gamma is not None else np.nan)
+        elif u < prop_gamma + prop_weibull:
+            synthetic_data.append(weibull_min.rvs(*params_weibull) if params_weibull is not None else np.nan)
+        else:
+            synthetic_data.append(lognorm.rvs(*params_lognorm) if params_lognorm is not None else np.nan)
+    
+    return np.array(synthetic_data)
+
+# Generate synthetic data with the same length as the original data
+synthetic_data = generate_synthetic_data(len(data))
+
+# Plotting the histograms of the empirical and synthetic data
+plt.figure(figsize=(12, 6))
+
+# Empirical data histogram
+plt.subplot(1, 2, 1)
+plt.hist(data, bins=215, density=True, alpha=0.6, color='k', edgecolor='k', label='Empirical Data')
+plt.title('Histogram of Empirical Data')
+plt.xlabel('Data')
+plt.ylabel('Density')
+plt.legend()
+plt.grid(True)
+
+# Synthetic data histogram
+plt.subplot(1, 2, 2)
+plt.hist(synthetic_data, bins=215, density=True, alpha=0.6, color='r', edgecolor='r', label='Synthetic Data')
+plt.title('Histogram of Synthetic Data')
+plt.xlabel('Data')
+plt.ylabel('Density')
+plt.legend()
+plt.grid(True)
+
+plt.tight_layout()
+plt.show()
 
 
 
