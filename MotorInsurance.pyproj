@@ -4,7 +4,7 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>e268e671-6f45-487e-b8ce-9bb7ee7de813</ProjectGuid>
     <ProjectHome>.</ProjectHome>
-    <StartupFile>MotorInsurance.py</StartupFile>
+    <StartupFile>simulation.py</StartupFile>
     <SearchPath>
     </SearchPath>
     <WorkingDirectory>.</WorkingDirectory>
@@ -21,7 +21,9 @@
     <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="MotorInsurance.py" />
+    <Compile Include="main.py" />
+    <Compile Include="simulation.py" />
+    <Compile Include="analysis.py" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\Python Tools\Microsoft.PythonTools.targets" />
   <!-- Uncomment the CoreCompile target to enable the Build command in
