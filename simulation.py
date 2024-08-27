@@ -223,9 +223,11 @@ def first_page(negbinom_result):
             # Apply the tag for the red line and bold text
             text_widget.tag_configure("red_line", foreground="red")
             text_widget.tag_configure("bold", font=("Helvetica", 12, "bold"))
-
+            # Scroll to the bottom
+            text_widget.yview_moveto(1.0)
             # Disable the text widget to make it read-only
             text_widget.config(state=tk.DISABLED)
+
 
             # Create a vertical scrollbar and link it to the text widget
             scrollbar = tk.Scrollbar(analysis_frame, command=text_widget.yview)
@@ -275,6 +277,12 @@ def first_page(negbinom_result):
                     if premia_portfolio[s][i] + summm - claims_portfolio[s][i] < 0:
                         counter += 1
                         break
+                # Update progress bar)
+                percent_complete = (s + 1) / 1000 * 100
+                print(percent_complete)
+                progress_var.set(percent_complete)
+                progress_label.config(text=f"{int(percent_complete)}% complete")
+                root.update_idletasks()
                     
             ruin = counter / 1000
                 
@@ -290,8 +298,8 @@ def first_page(negbinom_result):
                 ("VaR value", sums[int(percentage * 10) -1]), #important to substract 1, otherwise it would be out of index and wrong by one value
                 ("Starting amount of money of the pool", integer_value),
                 ("Ruin probability", ruin),
-                ("Amount of premia recevied", np.sum(sums) /1000),
-                ("Amount of claims to be paid", np.sum(premias) /1000),
+                ("Amount of claims to be paid", np.sum(sums) /1000),
+                ("Amount of premia received", np.sum(premias) /1000),
                 ("Variance", np.var(sums))
             ]
             information.append(info)
@@ -361,6 +369,8 @@ def first_page(negbinom_result):
             # Apply the tag for the red line and bold text
             text_widget.tag_configure("red_line", foreground="red")
             text_widget.tag_configure("bold", font=("Helvetica", 12, "bold"))
+            # Scroll to the bottom
+            text_widget.yview_moveto(1.0)
 
             # Disable the text widget to make it read-only
             text_widget.config(state=tk.DISABLED)
@@ -428,13 +438,19 @@ def first_page(negbinom_result):
                     year_premia[pos] += value  # Add the value to the chosen position
                 yearly_simulation.append([year_claims, year_premia])
                 summ = integer_value   
-                for i in range(365):
-                    if integer_value + year_premia[i] - year_claims[i] < 0:
+                for s in range(365):
+                    if integer_value + year_premia[s] - year_claims[s] < 0:
                         counter += 1
                         break
                     
                 data.append(np.sum(simulate_result))
+                # Update progress bar
+                percent_complete = (i + 1) / 1000 * 100
+                progress_var.set(percent_complete)
+                progress_label.config(text=f"{int(percent_complete)}% complete")
+                root.update_idletasks()
 
+            progress_label.config(text="Simulation complete")
             yearly_sim.append([yearly_simulation, saved_integer_value])
             data.sort()
             ruin = counter / 1000
@@ -469,8 +485,10 @@ def first_page(negbinom_result):
     
     root = tk.Tk()
     root.title("Model Summary and Example Row Update")
-    root.geometry('800x600')
+    root.geometry('900x600')
     root.resizable(True, True)
+    # Set minimum window size
+    root.minsize(800, 800)
     integer_value = tk.IntVar(value=0)
 
     # Initialize dictionaries
@@ -571,6 +589,15 @@ def first_page(negbinom_result):
         
     simulate_button = tk.Button(button_frame, text="Simulate", command=simulate)
     simulate_button.grid(row=4, column=3, padx=5, pady=5)
+    # Create progress bar next to the "Simulate" button
+    progress_var = tk.DoubleVar()
+    progress_bar = ttk.Progressbar(button_frame, variable=progress_var, maximum=100)
+
+    # Create label to show the percentage complete next to the progress bar
+    progress_label = tk.Label(button_frame, text="0% complete")
+    progress_label.grid(row=4, column=5, padx=5, pady=5)
+    
+    progress_bar.grid(row=4, column=4, padx=5, pady=5, sticky='w')
     simulate_button = tk.Button(button_frame, text="Portfolio", command=open_input_portfolio)
     simulate_button.grid(row=5, column=2, padx=5, pady=5)
     # Initialize default values
