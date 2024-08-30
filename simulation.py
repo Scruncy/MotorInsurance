@@ -264,7 +264,7 @@ def first_page(negbinom_result, premium_result):
         highlight_button('classification', get_button('classification', saved_selection['classification']))    
         
         
-    def open_input_portfolio():
+    def open_input_portfolio():  #if portfolio is pressed
         input_window = tk.Toplevel(root)
         input_window.title("Input Window")
 
@@ -337,7 +337,7 @@ def first_page(negbinom_result, premium_result):
                 print("Invalid percentage input")
                 percentage = 99.5
         
-            # Retrieve integer value
+            # Retrieve integer value for the money
             try:
                 integer_value = int(integer_entry.get())
                 print(f"Entered Integer Value: {integer_value}")
@@ -408,8 +408,9 @@ def first_page(negbinom_result, premium_result):
         tk.Button(input_window, text="Submit", command=get_values).pack(pady=10)
         
     def open_input_window(lower, upper , predict, alpha):
+        
         input_window = tk.Toplevel(root)
-        input_window.title("Input Window")
+        input_window.title("Input Window")  #generate the new window to choose between a lot of choices
     
         # Create and pack the sliders with initial values
         tk.Label(input_window, text="Value of p").pack(pady=5)
@@ -449,7 +450,7 @@ def first_page(negbinom_result, premium_result):
 
             if analysis_frame is not None and not analysis_frame_destroyed:
                 analysis_frame.destroy()
-                analysis_frame_destroyed = True
+                analysis_frame_destroyed = True   #change the frame
 
             # Create a new analysis frame inside the main window
             analysis_frame = tk.Frame(main_frame)
@@ -457,7 +458,7 @@ def first_page(negbinom_result, premium_result):
 
             # Create a text widget to display the information
             text_widget = tk.Text(analysis_frame, wrap=tk.NONE)
-            text_widget.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+            text_widget.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)   #display the portfolio
 
             # Insert information into the text widget
             for idx, item in enumerate(information, start=1):
@@ -486,6 +487,8 @@ def first_page(negbinom_result, premium_result):
 
         def get_values():
             # Retrieve slider values
+            simulate_button.grid(row=5, column=2, padx=5, pady=5)  #set the portfolio button visible
+
             global data
             global information
             global total_premia_reinsurance
@@ -503,7 +506,7 @@ def first_page(negbinom_result, premium_result):
                     percentage = 99.5
             except:
                 print("Invalid percentage input")
-                percentage = 99.5
+                percentage = 99.5    #if value is wrong, it gets 99.5 as default
         
             # Retrieve integer value
             try:
@@ -513,7 +516,7 @@ def first_page(negbinom_result, premium_result):
                     integer_value = 0
             except:
                 print("Invalid integer input. Setting value to 0.")
-                integer_value = 0
+                integer_value = 0    #amount of money to put apart, if wrong is put to 0
                 
                 # Retrieve excess_of_loss_treaties value
             try:
@@ -523,7 +526,7 @@ def first_page(negbinom_result, premium_result):
                 print(f"Entered Integer Value: {excess_of_loss_treaties}")
             except:
                 print("Invalid integer input. Setting value to 0.")
-                excess_of_loss_treaties = float('inf') 
+                excess_of_loss_treaties = float('inf')   #if wrong is put to infinity (namely no reinsurance of this type)
                 
              # Retrieve quota-share value
             try:
@@ -533,7 +536,7 @@ def first_page(negbinom_result, premium_result):
                 print(f"Entered Integer Value: {quota_share}")
             except:
                 print("A0.")
-                quota_share = 100
+                quota_share = 100    #if wrong no insurancce of this type
 
             input_window.destroy()
                 # Generate samples
@@ -552,7 +555,7 @@ def first_page(negbinom_result, premium_result):
             premium = []
             for i in range(length_simulation):   
 
-                simulate_result = generate_sample(slider2_value, slider1_value, saved_integer_value)
+                simulate_result = generate_sample(slider2_value, slider1_value, saved_integer_value) #generate Y of the pool
                 sum_claims += np.sum(simulate_result)
                 # Initialize the year vector with zeros
                 excess_of_loss_year_claims_insurance = np.zeros(365) #365 days
@@ -565,7 +568,7 @@ def first_page(negbinom_result, premium_result):
                         excess_of_loss_year_claims_insurance[pos] += value
                     else:
                         excess_of_loss_year_claims_insurance[pos] += excess_of_loss_treaties
-                        excess_of_loss_year_claims_reinsurance[pos] += (value - excess_of_loss_treaties)
+                        excess_of_loss_year_claims_reinsurance[pos] += (value - excess_of_loss_treaties)  #this is general, if no excess_of_loss it will be zero
                         
 
                 if excess_of_loss_treaties == float('inf'):                      
@@ -576,13 +579,13 @@ def first_page(negbinom_result, premium_result):
                         
                 excess_of_loss_year_claims_insurance = quota_share /100 * excess_of_loss_year_claims_insurance
                 year_premia = np.zeros(365)
-                premia = generate_premia(premium_result.predict(spec)[0], math.sqrt(premium_result.scale),saved_integer_value )
+                premia = generate_premia(premium_result.predict(spec)[0], math.sqrt(premium_result.scale),saved_integer_value ) #generate premia
                 sum_premia += np.sum(premia)
                 # Randomly choose positions and place the simulate_result values in the year vector
                 for value in premia:
                     pos = np.random.randint(0, 365)  # Random position between 0 and 365
                     year_premia[pos] += value  # Add the value to the chosen position
-                yearly_simulation.append([excess_of_loss_year_claims_insurance, year_premia])
+                yearly_simulation.append([excess_of_loss_year_claims_insurance, year_premia]) #save information
                 summ = integer_value   
                 for s in range(365):
                     if integer_value + year_premia[s] - excess_of_loss_year_claims_insurance[s] < 0:
@@ -623,7 +626,9 @@ def first_page(negbinom_result, premium_result):
             yearly_sim.append([yearly_simulation, saved_integer_value])
             total_premia_reinsurance.append(np.mean(data_reinsurance))
             
-            display_information()
+            display_information() #to change the frame
+            
+            #display a lot of graphs
             
             thresholds = np.linspace(0, np.max(data_insurance), num=50)  # Define thresholds from 0 to max(data)
                     # Plot histograms
@@ -641,7 +646,7 @@ def first_page(negbinom_result, premium_result):
             plot_mean_excess(premium, thresholds)
 
         # Create and pack the submit button
-        tk.Button(input_window, text="Submit", command=get_values).pack(pady=10)
+        tk.Button(input_window, text="Submit", command=get_values).pack(pady=10)  #when you press it, run get values
 
     # Initialize Tkinter variables and setup
     
@@ -653,7 +658,7 @@ def first_page(negbinom_result, premium_result):
     root.minsize(800, 800)
     integer_value = tk.IntVar(value=0)
 
-    # Initialize dictionaries
+    # Initialize dictionaries, this is important for glm
     example_row = {
         'conts': 1,
         'Area_1': 0,
@@ -668,7 +673,7 @@ def first_page(negbinom_result, premium_result):
     }
 
     last_selected = {'year': None, 'area': None, 'type_risk': None, 'classification': None}
-    saved_selection = {'year': 2018, 'area': 'urban', 'type_risk': 3, 'classification': 'fast'}
+    saved_selection = {'year': 2018, 'area': 'urban', 'type_risk': 3, 'classification': 'fast'} #starting values
     saved_integer_value = 0
 
     # Create main frame
@@ -710,7 +715,7 @@ def first_page(negbinom_result, premium_result):
     type_risk_buttons = [tk.Button(button_frame, text=f"Type Risk {risk}", command=lambda r=risk: save_and_update('type_risk', r)) for risk in [1, 2, 3, 4]]
     classification_buttons = [tk.Button(button_frame, text=classification, command=lambda c=classification.lower(): save_and_update('classification', c)) for classification in ["Slow", "Medium", "Fast"]]
 
-    # Grid buttons
+    # Grid buttons to be showed
     for i, button in enumerate(year_buttons): button.grid(row=0, column=i + 1, padx=5, pady=5)
     for i, button in enumerate(area_buttons): button.grid(row=1, column=i + 1, padx=5, pady=5)
     for i, button in enumerate(type_risk_buttons): button.grid(row=2, column=i + 1, padx=5, pady=5)
@@ -721,7 +726,6 @@ def first_page(negbinom_result, premium_result):
 
 
     def simulate():
-        simulate_button.grid(row=5, column=2, padx=5, pady=5)
         global simulate_result
         global data
             
@@ -744,7 +748,7 @@ def first_page(negbinom_result, premium_result):
         mu_lower = np.exp(eta_lower)
         mu_upper = np.exp(eta_upper)
         p_lower = alpha / (alpha + mu_lower)
-        p_upper = alpha / (alpha + mu_upper)
+        p_upper = alpha / (alpha + mu_upper)  #up to here you generate all the values important for open_input_window
         open_input_window(p_lower, p_upper, p, alpha )
         
 
