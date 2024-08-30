@@ -20,7 +20,7 @@ Model Family:        NegativeBinomial   Df Model:                            9
 Link Function:                    Log   Scale:                          1.0000
 Method:                          IRLS   Log-Likelihood:                -90549.
 Date:                Fri, 30 Aug 2024   Deviance:                   1.2586e+05
-Time:                        09:20:01   Pearson chi2:                 2.58e+05
+Time:                        11:44:17   Pearson chi2:                 2.58e+05
 No. Iterations:                    10   Pseudo R-squ. (CS):             0.1377
 Covariance Type:            nonrobust                                         
 =========================================================================================

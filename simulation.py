@@ -280,8 +280,11 @@ def first_page(negbinom_result, premium_result):
             global analysis_frame
             global total_premia_reinsurance
             # Delete existing analysis_frame if it exists
-            if analysis_frame is not None:
+            analysis_frame_destroyed = False
+
+            if analysis_frame is not None and not analysis_frame_destroyed:
                 analysis_frame.destroy()
+                analysis_frame_destroyed = True
 
             # Create a new analysis frame inside the main window
             analysis_frame = tk.Frame(main_frame)
