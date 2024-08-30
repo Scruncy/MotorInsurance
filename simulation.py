@@ -214,6 +214,8 @@ def first_page(negbinom_result, premium_result):
         nonlocal saved_integer_value
         try:
             saved_integer_value = int(integer_value.get())
+            if saved_integer_value < 0:
+                saved_integer_value = 0
         except:
             saved_integer_value = 100 #if the input is wrong, it gets value 100 as default
         finally:
@@ -339,6 +341,8 @@ def first_page(negbinom_result, premium_result):
             try:
                 integer_value = int(integer_entry.get())
                 print(f"Entered Integer Value: {integer_value}")
+                if integer_value < 0:
+                    integer_value = 0
             except:
                 print("Invalid integer input. Setting value to 0.")
                 integer_value = 0
@@ -366,7 +370,6 @@ def first_page(negbinom_result, premium_result):
                         break
                 # Update progress bar)
                 percent_complete = (s + 1) / length_simulation * 100
-                print(percent_complete)
                 progress_var.set(percent_complete)
                 progress_label.config(text=f"{int(percent_complete)}% complete")
                 root.update_idletasks()
@@ -506,6 +509,8 @@ def first_page(negbinom_result, premium_result):
             try:
                 integer_value = int(integer_entry.get())
                 print(f"Entered Integer Value: {integer_value}")
+                if integer_value < 0:
+                    integer_value = 0
             except:
                 print("Invalid integer input. Setting value to 0.")
                 integer_value = 0
