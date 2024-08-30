@@ -1,14 +1,17 @@
+import importlib
 
 def run_analysis():
     print("Running Analysis...")
     # Place the code from analysis.py here or import and call its main function
     import analysis
+    importlib.reload(analysis)
     analysis.main()
 
 def run_simulation():
     print("Running Simulation...")
     # Place the code from simulation.py here or import and call its main function
     import simulation
+    importlib.reload(simulation)
     simulation.main()
 
 def main():

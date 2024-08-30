@@ -523,7 +523,7 @@ def first_page(negbinom_result, premium_result):
              # Retrieve quota-share value
             try:
                 quota_share = 100-float(quota_share_entry.get())
-                if quota_share >= 100 :
+                if quota_share >= 100 & quota_share < 0 :
                     quota_share = 100
                 print(f"Entered Integer Value: {quota_share}")
             except:
@@ -772,6 +772,14 @@ selection = None
 information = []   
 
 def main ():
+    
+    global analysis_frame, data, yearly_sim, total_premia_reinsurance, selection,information
+    analysis_frame = None
+    data = []
+    yearly_sim = []
+    total_premia_reinsurance = []
+    selection = None
+    information = []
 
     try:
         with open('negbinom_model.pkl', 'rb') as f:
