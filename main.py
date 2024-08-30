@@ -1,41 +1,35 @@
-import tkinter as tk
-import subprocess
 
 def run_analysis():
-    root.destroy()  # Close the window
-    subprocess.run(['python', 'analysis.py'])
+    print("Running Analysis...")
+    # Place the code from analysis.py here or import and call its main function
+    import analysis
+    analysis.main()
 
 def run_simulation():
-    root.destroy()  # Close the window
-    subprocess.run(['python', 'simulation.py'])
+    print("Running Simulation...")
+    # Place the code from simulation.py here or import and call its main function
+    import simulation
+    simulation.main()
 
-# Create the main window
-root = tk.Tk()
-root.title("Choose an Action")
+def main():
+    while True:
+        print("\nChoose an Action:")
+        print("1. Analysis")
+        print("2. Simulation")
+        print("3. Exit")
 
-# Set initial window size (e.g., fullscreen)
-root.geometry('1920x1080')  # Set initial size
-root.resizable(True, True)  # Allow resizing in both directions
+        choice = input("Enter your choice (1/2/3): ")
 
-# Define a style for buttons
-button_style = {
-    'bg': '#4CAF50',  # Green background
-    'fg': '#ffffff',  # White text
-    'font': ('Arial', 16, 'bold'),  # Font style
-    'bd': 5,          # Border width
-    'relief': 'raised',  # Raised effect
-    'width': 20,
-    'height': 2
-}
+        if choice == '1':
+            run_analysis()
+        elif choice == '2':
+            run_simulation()
+        elif choice == '3':
+            print("Exiting...")
+            break
+        else:
+            print("Invalid choice, please try again.")
 
-# Create the Analysis button
-analysis_button = tk.Button(root, text="Analysis", command=run_analysis, **button_style)
-analysis_button.pack(pady=20, fill=tk.BOTH, expand=True)
-
-# Create the Simulation button
-simulation_button = tk.Button(root, text="Simulation", command=run_simulation, **button_style)
-simulation_button.pack(pady=20, fill=tk.BOTH, expand=True)
-
-# Start the Tkinter event loop
-root.mainloop()
+if __name__ == "__main__":
+    main()
 

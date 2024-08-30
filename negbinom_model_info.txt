@@ -1,15 +1,15 @@
 Coefficients:
 ,0
-const,-3.202341386208418
-Area_1,0.14530395286561198
-Type_risk_2,1.2172104440024167
-Type_risk_3,0.9366644228159361
-Type_risk_4,-4.9109399107733385
-Classification_fast,-0.548095461193026
-Classification_medium,0.20591097934621855
-Year_2016,-0.03836148296628282
-Year_2017,-0.5710543290165223
-Year_2018,-1.4639242373484036
+const,-1.406598731636696
+Area_1,0.15967678579276356
+Type_risk_2,1.3000483591719276
+Type_risk_3,0.9900189063543177
+Type_risk_4,-4.957290307799717
+Classification_fast,-0.55477084520059
+Classification_medium,0.2291141343895267
+Year_2016,-0.043155741814890486
+Year_2017,-0.6253581545856307
+Year_2018,-1.5581586731697312
 
 Model Summary:
                  Generalized Linear Model Regression Results                  
@@ -17,28 +17,28 @@ Model Summary:
 Dep. Variable:          N_claims_year   No. Observations:               105555
 Model:                            GLM   Df Residuals:                   105545
 Model Family:        NegativeBinomial   Df Model:                            9
-Link Function:       NegativeBinomial   Scale:                          1.0000
-Method:                          IRLS   Log-Likelihood:                -90815.
-Date:                Sat, 24 Aug 2024   Deviance:                   1.2674e+05
-Time:                        11:15:56   Pearson chi2:                 2.59e+05
-No. Iterations:                    10   Pseudo R-squ. (CS):             0.1384
+Link Function:                    Log   Scale:                          1.0000
+Method:                          IRLS   Log-Likelihood:                -90549.
+Date:                Fri, 30 Aug 2024   Deviance:                   1.2586e+05
+Time:                        09:20:01   Pearson chi2:                 2.58e+05
+No. Iterations:                    10   Pseudo R-squ. (CS):             0.1377
 Covariance Type:            nonrobust                                         
 =========================================================================================
                             coef    std err          z      P>|z|      [0.025      0.975]
 -----------------------------------------------------------------------------------------
-const                    -3.2023      0.033    -97.571      0.000      -3.267      -3.138
-Area_1                    0.1453      0.010     14.450      0.000       0.126       0.165
-Type_risk_2               1.2172      0.030     40.376      0.000       1.158       1.276
-Type_risk_3               0.9367      0.029     32.735      0.000       0.881       0.993
-Type_risk_4              -4.9109      1.000     -4.909      0.000      -6.872      -2.950
-Classification_fast      -0.5481      0.238     -2.299      0.022      -1.015      -0.081
-Classification_medium     0.2059      0.022      9.513      0.000       0.163       0.248
-Year_2016                -0.0384      0.018     -2.161      0.031      -0.073      -0.004
-Year_2017                -0.5711      0.019    -30.599      0.000      -0.608      -0.534
-Year_2018                -1.4639      0.021    -68.099      0.000      -1.506      -1.422
+const                    -1.4066      0.035    -40.367      0.000      -1.475      -1.338
+Area_1                    0.1597      0.011     14.353      0.000       0.138       0.181
+Type_risk_2               1.3000      0.032     41.149      0.000       1.238       1.362
+Type_risk_3               0.9900      0.030     33.360      0.000       0.932       1.048
+Type_risk_4              -4.9573      1.001     -4.954      0.000      -6.918      -2.996
+Classification_fast      -0.5548      0.245     -2.262      0.024      -1.036      -0.074
+Classification_medium     0.2291      0.025      9.307      0.000       0.181       0.277
+Year_2016                -0.0432      0.020     -2.139      0.032      -0.083      -0.004
+Year_2017                -0.6254      0.021    -29.835      0.000      -0.666      -0.584
+Year_2018                -1.5582      0.024    -66.282      0.000      -1.604      -1.512
 =========================================================================================
 Scale: 1.0
-Deviance: 126741.88396111899
-AIC: 181649.0697977874
-Alpha: 0.1760965105877899
-Link function: NegativeBinomial
+Deviance: 125855.28276731692
+AIC: 181118.84554881114
+Alpha: 0.18851865023341585
+Link function: Log
